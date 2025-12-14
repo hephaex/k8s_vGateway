@@ -41,6 +41,7 @@ mod config;
 mod executor;
 mod http;
 mod k8s;
+mod kubevirt;
 mod models;
 mod output;
 mod tests;
@@ -187,10 +188,156 @@ fn list_tests(args: cli::ListArgs) {
     }
 }
 
-async fn manage_vm(_args: cli::VmArgs) -> Result<()> {
-    info!("KubeVirt VM management - Coming in Sprint 5");
-    println!("KubeVirt integration will be implemented in Sprint 5.");
-    println!("This will enable testing of AMD64-only gateways (kgateway) on ARM64 hosts.");
+async fn manage_vm(args: cli::VmArgs) -> Result<()> {
+    use kubevirt::{SshClient, SshConfig, VirtualMachineManager, VmConfig, VmiManager};
+
+    let k8s_client = k8s::K8sClient::new("default").await?;
+    let vm_manager = VirtualMachineManager::new(k8s_client.clone());
+    let vmi_manager = VmiManager::new(k8s_client.clone());
+
+    // Check if KubeVirt is installed
+    if !vm_manager.is_kubevirt_installed().await? {
+        println!("❌ KubeVirt is not installed in the cluster.");
+        println!(
+            "   Install KubeVirt first: https://kubevirt.io/user-guide/operations/installation/"
+        );
+        return Ok(());
+    }
+
+    match args.action {
+        cli::VmAction::Create {
+            workers,
+            cpu,
+            memory,
+            disk: _,
+        } => {
+            info!("Creating {} KubeVirt VM(s)...", workers);
+
+            for i in 0..workers {
+                let vm_name = format!("gateway-test-vm-{i}");
+                println!("Creating VM: {vm_name}");
+
+                let vm = VmConfig::new(&vm_name, "default")
+                    .cpu(cpu)
+                    .memory(format!("{memory}Gi"))
+                    .label("app", "gateway-test")
+                    .label("instance", i.to_string())
+                    .build();
+
+                match vm_manager.create(&vm, "default").await {
+                    Ok(_) => {
+                        println!("  ✓ VM {vm_name} created successfully");
+
+                        // Wait for VM to be ready
+                        println!("  ⏳ Waiting for VM to be ready...");
+                        if vm_manager.wait_ready(&vm_name, "default", 300).await? {
+                            println!("  ✓ VM {vm_name} is ready");
+
+                            // Wait for IP
+                            if let Some(ip) =
+                                vmi_manager.wait_for_ip(&vm_name, "default", 120).await?
+                            {
+                                println!("  ✓ VM {vm_name} has IP: {ip}");
+                            }
+                        } else {
+                            println!("  ⚠ VM {vm_name} did not become ready in time");
+                        }
+                    }
+                    Err(e) => {
+                        println!("  ✗ Failed to create VM {vm_name}: {e}");
+                    }
+                }
+            }
+        }
+
+        cli::VmAction::Delete { all, name } => {
+            if all {
+                info!("Deleting all gateway-test VMs...");
+                let vms = vm_manager.list("default").await?;
+
+                for vm in vms {
+                    if let Some(labels) = &vm.metadata.labels {
+                        if labels.get("app").map(|s| s.as_str()) == Some("gateway-test") {
+                            if let Some(vm_name) = &vm.metadata.name {
+                                match vm_manager.delete(vm_name, "default").await {
+                                    Ok(_) => println!("  ✓ Deleted VM: {vm_name}"),
+                                    Err(e) => println!("  ✗ Failed to delete {vm_name}: {e}"),
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if let Some(vm_name) = name {
+                info!("Deleting VM: {}", vm_name);
+                match vm_manager.delete(&vm_name, "default").await {
+                    Ok(_) => println!("✓ Deleted VM: {vm_name}"),
+                    Err(e) => println!("✗ Failed to delete {vm_name}: {e}"),
+                }
+            } else {
+                println!("Please specify --all or --name <vm_name>");
+            }
+        }
+
+        cli::VmAction::Status => {
+            info!("Fetching VM status...");
+            let vms = vm_manager.list("default").await?;
+
+            println!("\n┌─────────────────────────────────────────────────────────────┐");
+            println!("│ KubeVirt VMs in 'default' namespace                          │");
+            println!("├─────────────────────────┬──────────┬─────────────────────────┤");
+            println!("│ Name                    │ Status   │ IP Address              │");
+            println!("├─────────────────────────┼──────────┼─────────────────────────┤");
+
+            for vm in vms {
+                let name = vm.metadata.name.as_deref().unwrap_or("unknown");
+                let status = vm
+                    .status
+                    .as_ref()
+                    .and_then(|s| s.printable_status.clone())
+                    .unwrap_or_else(|| "Unknown".to_string());
+
+                // Try to get IP from VMI
+                let ip = match vmi_manager.get_ip(name, "default").await {
+                    Ok(Some(ip)) => ip,
+                    _ => "N/A".to_string(),
+                };
+
+                println!("│ {name:23} │ {status:8} │ {ip:23} │");
+            }
+
+            println!("└─────────────────────────┴──────────┴─────────────────────────┘\n");
+        }
+
+        cli::VmAction::Ssh { name } => {
+            info!("Connecting to VM via SSH: {}", name);
+
+            // Get VM IP
+            let ip = match vmi_manager.get_ip(&name, "default").await? {
+                Some(ip) => ip,
+                None => {
+                    println!("❌ Could not find IP address for VM: {name}");
+                    return Ok(());
+                }
+            };
+
+            println!("Connecting to {name} ({ip})...");
+
+            let ssh = SshClient::new(SshConfig::new("fedora").port(22));
+
+            // Test connection
+            if ssh.wait_for_ssh(&ip, 60).await? {
+                println!("SSH is available. Use the following command to connect:");
+                println!("\n  ssh fedora@{ip}\n");
+
+                // Or use virtctl:
+                println!("Alternatively, use virtctl:");
+                println!("\n  virtctl ssh --namespace default {name}\n");
+            } else {
+                println!("❌ Could not establish SSH connection to VM");
+            }
+        }
+    }
+
     Ok(())
 }
 
