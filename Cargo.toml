@@ -19,7 +19,7 @@ futures = "0.3"
 clap = { version = "4.4", features = ["derive"] }
 
 # Kubernetes
-kube = { version = "0.87", features = ["runtime", "derive", "client"] }
+kube = { version = "2.0", features = ["runtime", "derive", "client"] }
 k8s-openapi = { version = "0.20", features = ["v1_28"] }
 
 # HTTP client
