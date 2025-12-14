@@ -39,6 +39,9 @@ pub enum Command {
 
     /// Run performance benchmarks
     Benchmark(BenchmarkArgs),
+
+    /// Manage configuration and profiles
+    Config(ConfigArgs),
 }
 
 /// Arguments for test command
@@ -381,6 +384,96 @@ pub enum BenchmarkAction {
         #[arg(short, long, default_value = "20")]
         buckets: usize,
     },
+}
+
+/// Arguments for config command
+#[derive(Parser, Debug)]
+pub struct ConfigArgs {
+    #[command(subcommand)]
+    pub action: ConfigAction,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConfigAction {
+    /// Initialize configuration file
+    Init {
+        /// Output path for config file
+        #[arg(short, long, default_value = "./gateway-poc.yaml")]
+        output: String,
+
+        /// Force overwrite existing file
+        #[arg(short, long)]
+        force: bool,
+    },
+
+    /// Show current configuration
+    Show {
+        /// Show environment variables
+        #[arg(short, long)]
+        env: bool,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        format: String,
+    },
+
+    /// Validate configuration file
+    Validate {
+        /// Path to config file
+        #[arg(short, long)]
+        file: Option<String>,
+    },
+
+    /// List available profiles
+    Profiles {
+        /// Show gateway profiles
+        #[arg(short, long)]
+        gateways: bool,
+
+        /// Show test profiles
+        #[arg(short, long)]
+        tests: bool,
+
+        /// Show detailed information
+        #[arg(short, long)]
+        detailed: bool,
+    },
+
+    /// Show profile details
+    Profile {
+        /// Profile name
+        name: String,
+
+        /// Profile type (gateway, test)
+        #[arg(short, long, default_value = "test")]
+        profile_type: String,
+    },
+
+    /// Set configuration value
+    Set {
+        /// Configuration key (e.g., app.default_gateway)
+        key: String,
+
+        /// Configuration value
+        value: String,
+
+        /// Config file path
+        #[arg(short, long)]
+        file: Option<String>,
+    },
+
+    /// Get configuration value
+    Get {
+        /// Configuration key
+        key: String,
+
+        /// Config file path
+        #[arg(short, long)]
+        file: Option<String>,
+    },
+
+    /// Show environment variable help
+    Env,
 }
 
 #[cfg(test)]

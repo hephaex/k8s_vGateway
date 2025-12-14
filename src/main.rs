@@ -85,6 +85,9 @@ async fn main() -> Result<()> {
         cli::Command::Benchmark(benchmark_args) => {
             run_benchmark(benchmark_args).await?;
         }
+        cli::Command::Config(config_args) => {
+            manage_config(config_args)?;
+        }
     }
 
     Ok(())
@@ -861,6 +864,187 @@ async fn run_benchmark(args: cli::BenchmarkArgs) -> Result<()> {
             println!("  Total Requests: {}", result.metrics.throughput.total_requests);
             println!("  Success Rate: {:.2}%", result.metrics.throughput.success_rate * 100.0);
             println!("  RPS: {:.1}", result.metrics.throughput.rps);
+        }
+    }
+
+    Ok(())
+}
+
+fn manage_config(args: cli::ConfigArgs) -> Result<()> {
+    use config::{ConfigFile, EnvConfig, ProfileManager, TestProfile};
+    use std::path::Path;
+
+    match args.action {
+        cli::ConfigAction::Init { output, force } => {
+            let path = Path::new(&output);
+            if path.exists() && !force {
+                anyhow::bail!(
+                    "Configuration file already exists: {output}. Use --force to overwrite."
+                );
+            }
+
+            let config = ConfigFile::example();
+            config.save(path)?;
+            println!("✓ Configuration file created: {output}");
+            println!("\nEdit the file to customize your settings.");
+        }
+
+        cli::ConfigAction::Show { env, format } => {
+            if env {
+                let env_config = EnvConfig::load();
+                env_config.print_summary();
+            } else {
+                let config = ConfigFile::load_default()?;
+                let output = if format == "json" {
+                    serde_json::to_string_pretty(&config)?
+                } else {
+                    serde_yaml::to_string(&config)?
+                };
+                println!("{output}");
+            }
+        }
+
+        cli::ConfigAction::Validate { file } => {
+            let path = file.unwrap_or_else(|| {
+                ConfigFile::find()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "./gateway-poc.yaml".to_string())
+            });
+
+            match ConfigFile::load(&path) {
+                Ok(_) => {
+                    println!("✓ Configuration file is valid: {path}");
+                }
+                Err(e) => {
+                    println!("✗ Configuration file is invalid: {path}");
+                    println!("  Error: {e}");
+                    return Err(e);
+                }
+            }
+        }
+
+        cli::ConfigAction::Profiles { gateways, tests, detailed } => {
+            let manager = ProfileManager::new();
+
+            let show_gateways = gateways || !tests;
+            let show_tests = tests || !gateways;
+
+            if show_gateways {
+                println!("Gateway Profiles:");
+                println!("{:-<60}", "");
+                for profile in manager.list_gateway_profiles() {
+                    if detailed {
+                        println!("  {} ({})", profile.name, profile.gateway.name());
+                        println!("    Namespace: {}", profile.namespace);
+                        println!("    Ports: HTTP={}, HTTPS={}", profile.http_port, profile.https_port);
+                        println!("    Install: {:?}", profile.install_method);
+                        println!();
+                    } else {
+                        println!("  {:20} - {}", profile.name, profile.gateway.name());
+                    }
+                }
+                println!();
+            }
+
+            if show_tests {
+                println!("Test Profiles:");
+                println!("{:-<60}", "");
+                for profile in manager.list_test_profiles() {
+                    if detailed {
+                        println!("  {}", profile.name);
+                        println!("    Description: {}", profile.description);
+                        println!("    Tests: {:?}", profile.tests);
+                        println!("    Rounds: {}, Parallel: {}", profile.rounds, profile.parallel);
+                        println!("    Tags: {:?}", profile.tags);
+                        println!();
+                    } else {
+                        println!("  {:20} - {} ({} tests)", profile.name, profile.description, profile.tests.len());
+                    }
+                }
+            }
+        }
+
+        cli::ConfigAction::Profile { name, profile_type } => {
+            let manager = ProfileManager::new();
+
+            match profile_type.as_str() {
+                "gateway" => {
+                    if let Some(profile) = manager.gateway_profile(&name) {
+                        println!("{}", serde_yaml::to_string(profile)?);
+                    } else {
+                        println!("Gateway profile not found: {name}");
+                        println!("\nAvailable profiles:");
+                        for p in manager.list_gateway_profiles() {
+                            println!("  - {}", p.name);
+                        }
+                    }
+                }
+                "test" => {
+                    if let Some(profile) = TestProfile::find(&name) {
+                        println!("{}", serde_yaml::to_string(&profile)?);
+                    } else {
+                        println!("Test profile not found: {name}");
+                        println!("\nAvailable profiles:");
+                        for p in TestProfile::predefined() {
+                            println!("  - {}", p.name);
+                        }
+                    }
+                }
+                _ => {
+                    println!("Unknown profile type: {profile_type}. Use 'gateway' or 'test'.");
+                }
+            }
+        }
+
+        cli::ConfigAction::Set { key, value, file } => {
+            let path = file.unwrap_or_else(|| "./gateway-poc.yaml".to_string());
+            let mut config = if Path::new(&path).exists() {
+                ConfigFile::load(&path)?
+            } else {
+                ConfigFile::default()
+            };
+
+            let value_display = value.clone();
+
+            // Set value based on key
+            match key.as_str() {
+                "app.default_gateway" => config.app.default_gateway = value,
+                "app.default_rounds" => config.app.default_rounds = value.parse()?,
+                "app.timeout_secs" => config.app.timeout_secs = value.parse()?,
+                "app.parallel" => config.app.parallel = value.parse()?,
+                "app.max_concurrent" => config.app.max_concurrent = value.parse()?,
+                _ => {
+                    anyhow::bail!("Unknown configuration key: {key}");
+                }
+            }
+
+            config.save(&path)?;
+            println!("✓ Set {key} = {value_display} in {path}");
+        }
+
+        cli::ConfigAction::Get { key, file } => {
+            let config = if let Some(path) = file {
+                ConfigFile::load(&path)?
+            } else {
+                ConfigFile::load_default()?
+            };
+
+            let value = match key.as_str() {
+                "app.default_gateway" => config.app.default_gateway.clone(),
+                "app.default_rounds" => config.app.default_rounds.to_string(),
+                "app.timeout_secs" => config.app.timeout_secs.to_string(),
+                "app.parallel" => config.app.parallel.to_string(),
+                "app.max_concurrent" => config.app.max_concurrent.to_string(),
+                _ => {
+                    anyhow::bail!("Unknown configuration key: {key}");
+                }
+            };
+
+            println!("{value}");
+        }
+
+        cli::ConfigAction::Env => {
+            config::env::print_env_help();
         }
     }
 

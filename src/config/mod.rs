@@ -1,12 +1,21 @@
 //! Configuration module
 //!
-//! Handles loading and managing configuration.
+//! Handles loading and managing configuration, profiles, and environment variables.
 
 #![allow(dead_code)]
+#![allow(unused_imports)]
+
+pub mod env;
+pub mod file;
+pub mod profile;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+
+pub use env::{EnvBuilder, EnvConfig};
+pub use file::{ConfigFile, ConfigWatcher, EnvironmentConfig};
+pub use profile::{GatewayProfile, InstallMethod, ProfileManager, TestProfile};
 
 /// Application configuration
 #[derive(Clone, Debug, Serialize, Deserialize)]
