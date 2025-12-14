@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/hephaex/k8s_vGateway#readme
+    about: Check the README for usage information
+  - name: Discussions
+    url: https://github.com/hephaex/k8s_vGateway/discussions
+    about: Ask questions and discuss ideas
