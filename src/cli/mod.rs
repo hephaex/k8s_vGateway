@@ -36,6 +36,9 @@ pub enum Command {
 
     /// Deploy and manage gateway implementations
     Deploy(DeployArgs),
+
+    /// Run performance benchmarks
+    Benchmark(BenchmarkArgs),
 }
 
 /// Arguments for test command
@@ -271,6 +274,112 @@ pub enum DeployAction {
         /// Output format (yaml, json)
         #[arg(short, long, default_value = "yaml")]
         format: String,
+    },
+}
+
+/// Arguments for benchmark command
+#[derive(Parser, Debug)]
+pub struct BenchmarkArgs {
+    #[command(subcommand)]
+    pub action: BenchmarkAction,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum BenchmarkAction {
+    /// Run a benchmark against a gateway
+    Run {
+        /// Gateway implementation to benchmark
+        #[arg(short, long, default_value = "nginx")]
+        gateway: String,
+
+        /// Gateway IP address
+        #[arg(short, long)]
+        ip: String,
+
+        /// Gateway port
+        #[arg(short, long, default_value = "80")]
+        port: u16,
+
+        /// Target URL path
+        #[arg(long, default_value = "/")]
+        path: String,
+
+        /// Host header
+        #[arg(long, default_value = "example.com")]
+        hostname: String,
+
+        /// Test duration in seconds
+        #[arg(short, long, default_value = "60")]
+        duration: u64,
+
+        /// Number of concurrent connections
+        #[arg(short, long, default_value = "10")]
+        concurrency: u32,
+
+        /// Target requests per second (0 for max throughput)
+        #[arg(short, long, default_value = "100")]
+        rps: u32,
+
+        /// Load pattern (constant, ramp, step, spike, max)
+        #[arg(long, default_value = "constant")]
+        pattern: String,
+
+        /// Warmup duration in seconds
+        #[arg(long, default_value = "5")]
+        warmup: u64,
+
+        /// Output format (text, json, markdown, csv, html)
+        #[arg(short, long, default_value = "text")]
+        format: String,
+
+        /// Save report to file
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+
+    /// Compare benchmarks across multiple gateways
+    Compare {
+        /// Gateway implementations to compare (comma-separated)
+        #[arg(short, long, default_value = "nginx,envoy,istio")]
+        gateways: String,
+
+        /// Gateway IP address
+        #[arg(short, long)]
+        ip: String,
+
+        /// Gateway port
+        #[arg(short, long, default_value = "80")]
+        port: u16,
+
+        /// Test duration per gateway in seconds
+        #[arg(short, long, default_value = "30")]
+        duration: u64,
+
+        /// Number of concurrent connections
+        #[arg(short, long, default_value = "10")]
+        concurrency: u32,
+
+        /// Target requests per second
+        #[arg(short, long, default_value = "100")]
+        rps: u32,
+
+        /// Output format (text, json, markdown, csv, html)
+        #[arg(short, long, default_value = "text")]
+        format: String,
+
+        /// Save report to file
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+
+    /// Show latency histogram for a benchmark result
+    Histogram {
+        /// Benchmark result JSON file
+        file: String,
+
+        /// Number of buckets
+        #[arg(short, long, default_value = "20")]
+        buckets: usize,
     },
 }
 

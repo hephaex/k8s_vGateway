@@ -188,6 +188,13 @@ impl HttpClient {
         self.send(HttpRequest::get(url).headers(headers)).await
     }
 
+    /// GET with Host header
+    pub async fn get_with_host(&self, url: &str, hostname: &str) -> Result<HttpResponse> {
+        let mut headers = HashMap::new();
+        headers.insert("Host".to_string(), hostname.to_string());
+        self.get_with_headers(url, headers).await
+    }
+
     /// Convenience method for POST request
     pub async fn post(&self, url: &str, body: impl Into<String>) -> Result<HttpResponse> {
         self.send(HttpRequest::post(url).body(body)).await

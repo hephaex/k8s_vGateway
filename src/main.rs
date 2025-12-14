@@ -36,6 +36,7 @@ use clap::Parser;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
+mod benchmark;
 mod cli;
 mod config;
 mod deploy;
@@ -80,6 +81,9 @@ async fn main() -> Result<()> {
         }
         cli::Command::Deploy(deploy_args) => {
             manage_deploy(deploy_args).await?;
+        }
+        cli::Command::Benchmark(benchmark_args) => {
+            run_benchmark(benchmark_args).await?;
         }
     }
 
@@ -674,6 +678,189 @@ async fn manage_deploy(args: cli::DeployArgs) -> Result<()> {
             };
 
             println!("{output}");
+        }
+    }
+
+    Ok(())
+}
+
+async fn run_benchmark(args: cli::BenchmarkArgs) -> Result<()> {
+    use benchmark::{BenchmarkConfig, BenchmarkReport, BenchmarkReportFormat, BenchmarkRunner, LoadPattern};
+    use std::fs;
+
+    match args.action {
+        cli::BenchmarkAction::Run {
+            gateway,
+            ip,
+            port,
+            path,
+            hostname,
+            duration,
+            concurrency,
+            rps,
+            pattern,
+            warmup,
+            format,
+            output,
+        } => {
+            let implementation = GatewayImpl::from_str(&gateway)
+                .ok_or_else(|| anyhow::anyhow!("Unknown gateway: {gateway}"))?;
+
+            // Parse load pattern
+            let load_pattern = match pattern.to_lowercase().as_str() {
+                "constant" => LoadPattern::Constant { rps },
+                "ramp" => LoadPattern::Ramp {
+                    start_rps: rps / 2,
+                    end_rps: rps,
+                    duration_secs: duration,
+                },
+                "step" => LoadPattern::Step {
+                    start_rps: rps / 4,
+                    step_rps: rps / 4,
+                    step_interval_secs: duration / 4,
+                    max_rps: rps,
+                },
+                "spike" => LoadPattern::Spike {
+                    base_rps: rps / 2,
+                    spike_rps: rps * 2,
+                    spike_duration_secs: duration / 6,
+                },
+                "max" => LoadPattern::Max { concurrency },
+                _ => LoadPattern::Constant { rps },
+            };
+
+            let config = BenchmarkConfig::new(implementation, &ip)
+                .with_pattern(load_pattern)
+                .with_duration(duration)
+                .with_concurrency(concurrency)
+                .with_path(&path)
+                .with_hostname(&hostname);
+
+            // Update config with warmup and port
+            let mut config = config;
+            config.warmup_secs = warmup;
+            config.port = port;
+
+            println!("Starting benchmark for {} at http://{}:{}{}", implementation.name(), ip, port, path);
+            println!("Duration: {duration}s, Concurrency: {concurrency}, Pattern: {pattern:?}");
+
+            let runner = BenchmarkRunner::new(config);
+            let result = runner.run().await?;
+
+            // Generate report
+            let report_format = BenchmarkReportFormat::from_str(&format)
+                .unwrap_or(BenchmarkReportFormat::Text);
+            let report = BenchmarkReport::single(&result, report_format);
+
+            println!("{report}");
+
+            // Save to file if specified
+            if let Some(output_path) = output {
+                fs::write(&output_path, &report)?;
+                println!("Report saved to: {output_path}");
+            }
+        }
+
+        cli::BenchmarkAction::Compare {
+            gateways,
+            ip,
+            port,
+            duration,
+            concurrency,
+            rps,
+            format,
+            output,
+        } => {
+            let gateway_list: Vec<&str> = gateways.split(',').map(|s| s.trim()).collect();
+            let mut results = Vec::new();
+
+            println!("Comparing {} gateways...\n", gateway_list.len());
+
+            for gateway_name in gateway_list {
+                if let Some(implementation) = GatewayImpl::from_str(gateway_name) {
+                    println!("Benchmarking {}...", implementation.name());
+
+                    let config = BenchmarkConfig::new(implementation, &ip)
+                        .with_pattern(LoadPattern::Constant { rps })
+                        .with_duration(duration)
+                        .with_concurrency(concurrency);
+
+                    let mut config = config;
+                    config.port = port;
+
+                    let runner = BenchmarkRunner::new(config);
+                    match runner.run().await {
+                        Ok(result) => {
+                            println!(
+                                "  ✓ {}: {:.1} RPS, p99={:.2}ms",
+                                implementation.name(),
+                                result.metrics.throughput.rps,
+                                result.metrics.latency.percentiles.p99
+                            );
+                            results.push(result);
+                        }
+                        Err(e) => {
+                            println!("  ✗ {}: Failed - {}", implementation.name(), e);
+                        }
+                    }
+                } else {
+                    println!("  ⚠ Unknown gateway: {gateway_name}");
+                }
+            }
+
+            if !results.is_empty() {
+                // Generate comparison report
+                let report_format = BenchmarkReportFormat::from_str(&format)
+                    .unwrap_or(BenchmarkReportFormat::Text);
+                let report = BenchmarkReport::comparison(&results, report_format);
+
+                println!("\n{report}");
+
+                // Save to file if specified
+                if let Some(output_path) = output {
+                    fs::write(&output_path, &report)?;
+                    println!("Report saved to: {output_path}");
+                }
+            }
+        }
+
+        cli::BenchmarkAction::Histogram { file, buckets } => {
+            let content = fs::read_to_string(&file)?;
+            let result: benchmark::BenchmarkResult = serde_json::from_str(&content)?;
+
+            println!("\nLatency Histogram for {} Benchmark", result.config.gateway.name());
+            println!("{:=<60}", "");
+
+            // Create histogram buckets
+            let min = result.metrics.latency.min;
+            let max = result.metrics.latency.max;
+            let range = max - min;
+            let _bucket_size = range / buckets as f64;
+
+            println!("\nLatency Distribution (ms):");
+            println!("  Min: {:.2}ms, Max: {:.2}ms, Mean: {:.2}ms", min, max, result.metrics.latency.mean);
+            println!("\n  {:>12} {:>12} {:>12}", "Range (ms)", "Count", "Histogram");
+            println!("  {:->12} {:->12} {:->40}", "", "", "");
+
+            // Note: We don't have individual samples stored, so show percentile-based distribution
+            let percentiles = [
+                ("0-50%", result.metrics.latency.percentiles.p50),
+                ("50-90%", result.metrics.latency.percentiles.p90),
+                ("90-95%", result.metrics.latency.percentiles.p95),
+                ("95-99%", result.metrics.latency.percentiles.p99),
+                ("99-99.9%", result.metrics.latency.percentiles.p999),
+            ];
+
+            for (label, value) in percentiles {
+                let bar_len = ((value / max) * 40.0) as usize;
+                let bar = "█".repeat(bar_len.min(40));
+                println!("  {label:>12} {value:>12.2} {bar}");
+            }
+
+            println!("\nSummary:");
+            println!("  Total Requests: {}", result.metrics.throughput.total_requests);
+            println!("  Success Rate: {:.2}%", result.metrics.throughput.success_rate * 100.0);
+            println!("  RPS: {:.1}", result.metrics.throughput.rps);
         }
     }
 
