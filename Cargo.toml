@@ -37,7 +37,7 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # Utilities
 rand = "0.8"
-dirs = "5.0"
+dirs = "6.0"
 
 # Error handling
 anyhow = "1.0"
