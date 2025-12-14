@@ -108,7 +108,7 @@ jobs:
         run: cargo build --release --verbose
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: gateway-poc-${{ matrix.target }}
           path: target/release/gateway-poc
