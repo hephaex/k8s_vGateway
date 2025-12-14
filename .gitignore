@@ -1,17 +1,66 @@
 # Rust build artifacts
 /target/
-Cargo.lock
+**/*.rs.bk
+*.pdb
 
-# IDE
+# Cargo.lock is included for binary crates
+# Cargo.lock
+
+# IDE and editors
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
 
-# OS
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Environment
+# Environment and secrets
 .env
-.env.local
+.env.*
+*.pem
+*.key
+secrets/
+
+# Test and coverage
+*.profraw
+*.profdata
+coverage/
+tarpaulin-report.html
+lcov.info
+
+# Documentation build
+/doc/
+/docs/target/
+
+# Logs
+*.log
+logs/
+
+# Local configuration
+gateway-poc.yaml
+gateway-poc.yml
+.gateway-poc.yaml
+.gateway-poc/
+
+# Benchmark results (optional, uncomment to ignore)
+# results/
+# benchmarks/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+.cache/
