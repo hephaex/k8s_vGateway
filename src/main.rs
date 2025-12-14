@@ -44,6 +44,7 @@ mod k8s;
 mod kubevirt;
 mod models;
 mod output;
+mod results;
 mod tests;
 mod utils;
 
@@ -341,8 +342,169 @@ async fn manage_vm(args: cli::VmArgs) -> Result<()> {
     Ok(())
 }
 
-fn show_results(_args: cli::ResultsArgs) -> Result<()> {
+fn show_results(args: cli::ResultsArgs) -> Result<()> {
+    use results::{
+        ComparisonFormatter, GatewayComparator, ReportFormat, ReportGenerator, ResultsStorage,
+    };
+    use std::path::PathBuf;
+
     info!("Results viewer - displaying stored results");
-    println!("Results storage and retrieval will be fully implemented.");
+
+    let storage = ResultsStorage::default_dir()?;
+
+    // List gateways if no specific gateway requested
+    if args.gateway.is_none() && !args.summary {
+        let gateways = storage.list_gateways()?;
+
+        if gateways.is_empty() {
+            println!("\n📭 No stored results found.");
+            println!("   Run tests with: gateway-poc test --gateway <name> --ip <address>");
+            return Ok(());
+        }
+
+        println!("\n┌─────────────────────────────────────────────────────────────┐");
+        println!("│ Stored Test Results                                          │");
+        println!("├─────────────────────────────────────────────────────────────┤");
+
+        for gateway in &gateways {
+            let runs = storage.list_runs(gateway)?;
+            if !runs.is_empty() {
+                let latest = &runs[0];
+                println!(
+                    "│ {:25} │ {:3} runs │ Latest: {:.1}% │",
+                    gateway,
+                    runs.len(),
+                    latest.pass_rate * 100.0
+                );
+            }
+        }
+
+        println!("└─────────────────────────────────────────────────────────────┘");
+        println!("\nUse --gateway <name> to view details for a specific gateway.");
+        println!("Use --summary to compare all gateways.\n");
+
+        return Ok(());
+    }
+
+    // Show comparison summary
+    if args.summary {
+        let gateways = storage.list_gateways()?;
+        let mut runs = Vec::new();
+
+        for gateway in gateways {
+            if let Some(run) = storage.latest(&gateway)? {
+                runs.push(run);
+            }
+        }
+
+        if runs.is_empty() {
+            println!("No results to compare.");
+            return Ok(());
+        }
+
+        let comparison = GatewayComparator::compare(&runs);
+
+        match args.format.as_str() {
+            "json" => {
+                println!("{}", ComparisonFormatter::format_json(&comparison));
+            }
+            _ => {
+                println!("{}", ComparisonFormatter::format_table(&comparison));
+            }
+        }
+
+        // Export if requested
+        if let Some(export_path) = &args.export {
+            let path = PathBuf::from(export_path);
+            let format =
+                ReportFormat::from_str(path.extension().and_then(|e| e.to_str()).unwrap_or("md"))
+                    .unwrap_or(ReportFormat::Markdown);
+
+            let generator = ReportGenerator::new(storage);
+            let report = generator.comparison_report(&runs, format);
+            std::fs::write(&path, report)?;
+            println!("\n✓ Report exported to: {}", path.display());
+        }
+
+        return Ok(());
+    }
+
+    // Show specific gateway results
+    if let Some(gateway) = &args.gateway {
+        let runs = storage.load_gateway(gateway)?;
+
+        if runs.is_empty() {
+            println!("No results found for gateway: {gateway}");
+            return Ok(());
+        }
+
+        let latest = &runs[0];
+
+        match args.format.as_str() {
+            "json" => {
+                println!("{}", serde_json::to_string_pretty(latest)?);
+            }
+            _ => {
+                println!("\n┌─────────────────────────────────────────────────────────────┐");
+                println!("│ Gateway: {:50} │", latest.gateway);
+                println!("├─────────────────────────────────────────────────────────────┤");
+                println!("│ Run ID: {:50} │", latest.id);
+                println!("│ IP: {:54} │", latest.gateway_ip);
+                println!("│ Rounds: {:50} │", latest.rounds);
+
+                if let Some(agg) = &latest.aggregate {
+                    println!("├─────────────────────────────────────────────────────────────┤");
+                    println!("│ Pass Rate: {:47.1}% │", agg.avg_pass_rate * 100.0);
+                    println!("│ Avg Duration: {:44}ms │", agg.avg_duration_ms);
+                    println!("├─────────────────────────────────────────────────────────────┤");
+                    println!("│ {:30} {:>8} {:>10} │", "Test", "Pass%", "Avg(ms)");
+                    println!("├─────────────────────────────────────────────────────────────┤");
+
+                    for (name, stats) in &agg.test_stats {
+                        let short_name = if name.len() > 30 {
+                            format!("{}...", &name[..27])
+                        } else {
+                            name.clone()
+                        };
+                        println!(
+                            "│ {:30} {:>7.1}% {:>10} │",
+                            short_name,
+                            stats.pass_rate * 100.0,
+                            stats.avg_duration_ms
+                        );
+                    }
+                }
+
+                println!("└─────────────────────────────────────────────────────────────┘");
+
+                // Show other runs
+                if runs.len() > 1 {
+                    println!("\nOther runs ({}):", runs.len() - 1);
+                    for run in runs.iter().skip(1).take(5) {
+                        let pass_rate = run
+                            .aggregate
+                            .as_ref()
+                            .map(|a| format!("{:.1}%", a.avg_pass_rate * 100.0))
+                            .unwrap_or_else(|| "N/A".to_string());
+                        println!("  - {} | {} | {}", run.id, run.rounds, pass_rate);
+                    }
+                }
+            }
+        }
+
+        // Export if requested
+        if let Some(export_path) = &args.export {
+            let path = PathBuf::from(export_path);
+            let format =
+                ReportFormat::from_str(path.extension().and_then(|e| e.to_str()).unwrap_or("md"))
+                    .unwrap_or(ReportFormat::Markdown);
+
+            let generator = ReportGenerator::new(storage);
+            let report = generator.gateway_report(latest, format);
+            std::fs::write(&path, report)?;
+            println!("\n✓ Report exported to: {}", path.display());
+        }
+    }
+
     Ok(())
 }
