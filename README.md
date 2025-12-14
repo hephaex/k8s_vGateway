@@ -1,5 +1,8 @@
 # k8s_vGateway
 
+[![CI](https://github.com/hephaex/k8s_vGateway/actions/workflows/ci.yml/badge.svg)](https://github.com/hephaex/k8s_vGateway/actions/workflows/ci.yml)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 Kubernetes Gateway API Implementation Comparison Tool
 
 A CLI tool to test and compare 7 different Gateway API implementations on Kubernetes with KubeVirt support.
