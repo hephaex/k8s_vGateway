@@ -98,7 +98,8 @@ impl LatencyStats {
         let sum: f64 = sorted.iter().sum();
         let mean = sum / sorted.len() as f64;
 
-        let variance: f64 = sorted.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / sorted.len() as f64;
+        let variance: f64 =
+            sorted.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / sorted.len() as f64;
         let std_dev = variance.sqrt();
 
         let percentiles = Percentiles::from_sorted(&sorted);
@@ -204,11 +205,20 @@ pub struct ErrorStats {
 impl ErrorStats {
     /// Total error count
     pub fn total(&self) -> u64 {
-        self.connection_errors + self.timeout_errors + self.client_errors + self.server_errors + self.other_errors
+        self.connection_errors
+            + self.timeout_errors
+            + self.client_errors
+            + self.server_errors
+            + self.other_errors
     }
 
     /// Record an error by status code or type
-    pub fn record(&mut self, status_code: Option<u16>, is_timeout: bool, is_connection_error: bool) {
+    pub fn record(
+        &mut self,
+        status_code: Option<u16>,
+        is_timeout: bool,
+        is_connection_error: bool,
+    ) {
         if is_timeout {
             self.timeout_errors += 1;
         } else if is_connection_error {
@@ -258,10 +268,17 @@ impl MetricsCollector {
     }
 
     /// Record a failed request
-    pub fn record_failure(&mut self, latency_ms: f64, status_code: Option<u16>, is_timeout: bool, is_connection_error: bool) {
+    pub fn record_failure(
+        &mut self,
+        latency_ms: f64,
+        status_code: Option<u16>,
+        is_timeout: bool,
+        is_connection_error: bool,
+    ) {
         self.latencies.push(latency_ms);
         self.fail_count += 1;
-        self.errors.record(status_code, is_timeout, is_connection_error);
+        self.errors
+            .record(status_code, is_timeout, is_connection_error);
     }
 
     /// Record a request result

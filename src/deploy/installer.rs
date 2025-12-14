@@ -160,7 +160,14 @@ impl GatewayInstaller {
 
     async fn ensure_namespace(&self) -> Result<()> {
         let output = Command::new("kubectl")
-            .args(["create", "namespace", &self.config.namespace, "--dry-run=client", "-o", "yaml"])
+            .args([
+                "create",
+                "namespace",
+                &self.config.namespace,
+                "--dry-run=client",
+                "-o",
+                "yaml",
+            ])
             .output()
             .await?;
 
@@ -192,7 +199,8 @@ impl GatewayInstaller {
         let release_name = format!("{}-nginx", self.config.release_prefix);
 
         // Add nginx repo
-        self.helm_repo_add("nginx", "https://kubernetes.github.io/ingress-nginx").await?;
+        self.helm_repo_add("nginx", "https://kubernetes.github.io/ingress-nginx")
+            .await?;
 
         // Install NGINX Gateway Fabric
         let mut args = vec![
@@ -307,8 +315,10 @@ impl GatewayInstaller {
         let output = Command::new("cilium")
             .args([
                 "install",
-                "--set", "kubeProxyReplacement=true",
-                "--set", "gatewayAPI.enabled=true",
+                "--set",
+                "kubeProxyReplacement=true",
+                "--set",
+                "gatewayAPI.enabled=true",
             ])
             .output()
             .await
@@ -332,7 +342,8 @@ impl GatewayInstaller {
     async fn install_cilium_helm(&self) -> Result<InstallResult> {
         let release_name = format!("{}-cilium", self.config.release_prefix);
 
-        self.helm_repo_add("cilium", "https://helm.cilium.io/").await?;
+        self.helm_repo_add("cilium", "https://helm.cilium.io/")
+            .await?;
 
         let args = vec![
             "upgrade".to_string(),
@@ -364,7 +375,8 @@ impl GatewayInstaller {
     async fn install_kong(&self) -> Result<InstallResult> {
         let release_name = format!("{}-kong", self.config.release_prefix);
 
-        self.helm_repo_add("kong", "https://charts.konghq.com").await?;
+        self.helm_repo_add("kong", "https://charts.konghq.com")
+            .await?;
 
         let args = vec![
             "upgrade".to_string(),
@@ -395,7 +407,8 @@ impl GatewayInstaller {
     async fn install_traefik(&self) -> Result<InstallResult> {
         let release_name = format!("{}-traefik", self.config.release_prefix);
 
-        self.helm_repo_add("traefik", "https://traefik.github.io/charts").await?;
+        self.helm_repo_add("traefik", "https://traefik.github.io/charts")
+            .await?;
 
         let args = vec![
             "upgrade".to_string(),
@@ -426,7 +439,8 @@ impl GatewayInstaller {
     async fn install_kgateway(&self) -> Result<InstallResult> {
         let release_name = format!("{}-kgateway", self.config.release_prefix);
 
-        self.helm_repo_add("kgateway", "https://kgateway-dev.github.io/kgateway/").await?;
+        self.helm_repo_add("kgateway", "https://kgateway-dev.github.io/kgateway/")
+            .await?;
 
         let args = vec![
             "upgrade".to_string(),
@@ -546,10 +560,7 @@ impl GatewayInstaller {
         info!("Uninstalling Cilium...");
 
         // Try cilium CLI first
-        let output = Command::new("cilium")
-            .args(["uninstall"])
-            .output()
-            .await;
+        let output = Command::new("cilium").args(["uninstall"]).output().await;
 
         match output {
             Ok(o) if o.status.success() => {
@@ -575,7 +586,11 @@ impl GatewayInstaller {
                 if status.is_installed() {
                     results.push(InstallResult {
                         gateway,
-                        release_name: format!("{}-{}", self.config.release_prefix, gateway.short_name()),
+                        release_name: format!(
+                            "{}-{}",
+                            self.config.release_prefix,
+                            gateway.short_name()
+                        ),
                         namespace: self.config.namespace.clone(),
                         gateway_class: gateway.gateway_class().to_string(),
                         status,
@@ -632,8 +647,11 @@ impl GatewayInstaller {
             // Check GatewayClass status
             let output = Command::new("kubectl")
                 .args([
-                    "get", "gatewayclass", gateway_class,
-                    "-o", "jsonpath={.status.conditions[?(@.type=='Accepted')].status}",
+                    "get",
+                    "gatewayclass",
+                    gateway_class,
+                    "-o",
+                    "jsonpath={.status.conditions[?(@.type=='Accepted')].status}",
                 ])
                 .output()
                 .await?;

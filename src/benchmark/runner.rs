@@ -21,11 +21,24 @@ pub enum LoadPattern {
     /// Constant load at specified RPS
     Constant { rps: u32 },
     /// Ramp up from start to end RPS over duration
-    Ramp { start_rps: u32, end_rps: u32, duration_secs: u64 },
+    Ramp {
+        start_rps: u32,
+        end_rps: u32,
+        duration_secs: u64,
+    },
     /// Step increase in load
-    Step { start_rps: u32, step_rps: u32, step_interval_secs: u64, max_rps: u32 },
+    Step {
+        start_rps: u32,
+        step_rps: u32,
+        step_interval_secs: u64,
+        max_rps: u32,
+    },
     /// Spike pattern for stress testing
-    Spike { base_rps: u32, spike_rps: u32, spike_duration_secs: u64 },
+    Spike {
+        base_rps: u32,
+        spike_rps: u32,
+        spike_duration_secs: u64,
+    },
     /// Maximum throughput (as fast as possible)
     Max { concurrency: u32 },
 }
@@ -41,16 +54,29 @@ impl LoadPattern {
     pub fn rps_at(&self, elapsed_secs: f64, total_duration_secs: f64) -> u32 {
         match self {
             LoadPattern::Constant { rps } => *rps,
-            LoadPattern::Ramp { start_rps, end_rps, duration_secs } => {
+            LoadPattern::Ramp {
+                start_rps,
+                end_rps,
+                duration_secs,
+            } => {
                 let progress = (elapsed_secs / *duration_secs as f64).min(1.0);
                 let delta = *end_rps as f64 - *start_rps as f64;
                 (*start_rps as f64 + delta * progress) as u32
             }
-            LoadPattern::Step { start_rps, step_rps, step_interval_secs, max_rps } => {
+            LoadPattern::Step {
+                start_rps,
+                step_rps,
+                step_interval_secs,
+                max_rps,
+            } => {
                 let steps = (elapsed_secs / *step_interval_secs as f64) as u32;
                 (*start_rps + steps * step_rps).min(*max_rps)
             }
-            LoadPattern::Spike { base_rps, spike_rps, spike_duration_secs } => {
+            LoadPattern::Spike {
+                base_rps,
+                spike_rps,
+                spike_duration_secs,
+            } => {
                 // Spike in the middle of the test
                 let spike_start = total_duration_secs / 3.0;
                 let spike_end = spike_start + *spike_duration_secs as f64;
@@ -201,8 +227,8 @@ impl BenchmarkRunner {
     /// Create a new benchmark runner
     pub fn new(config: BenchmarkConfig) -> Self {
         let timeout_secs = config.timeout_ms / 1000;
-        let http_client = HttpClient::with_timeout(timeout_secs.max(1))
-            .expect("Failed to create HTTP client");
+        let http_client =
+            HttpClient::with_timeout(timeout_secs.max(1)).expect("Failed to create HTTP client");
 
         Self {
             config,
@@ -281,7 +307,8 @@ impl BenchmarkRunner {
 
         match &self.config.pattern {
             LoadPattern::Max { concurrency } => {
-                self.run_max_throughput(*concurrency, duration, collector.clone()).await?;
+                self.run_max_throughput(*concurrency, duration, collector.clone())
+                    .await?;
             }
             _ => {
                 self.run_rate_limited(duration, collector.clone()).await?;
@@ -293,7 +320,11 @@ impl BenchmarkRunner {
     }
 
     /// Run with rate limiting
-    async fn run_rate_limited(&self, duration: Duration, collector: Arc<Mutex<MetricsCollector>>) -> Result<()> {
+    async fn run_rate_limited(
+        &self,
+        duration: Duration,
+        collector: Arc<Mutex<MetricsCollector>>,
+    ) -> Result<()> {
         let url = self.config.url();
         let hostname = self.config.hostname.clone();
         let start = Instant::now();
@@ -411,7 +442,10 @@ impl BenchmarkRunner {
                 let elapsed = coll.elapsed().as_secs_f64();
                 let count = coll.request_count();
                 let rps = coll.current_rps();
-                debug!("Progress: {:.0}s elapsed, {} requests, {:.1} RPS", elapsed, count, rps);
+                debug!(
+                    "Progress: {:.0}s elapsed, {} requests, {:.1} RPS",
+                    elapsed, count, rps
+                );
             }
         });
 
@@ -449,7 +483,13 @@ impl BenchmarkComparison {
     /// Get results sorted by RPS (descending)
     pub fn by_rps(&self) -> Vec<&BenchmarkResult> {
         let mut sorted: Vec<_> = self.results.iter().collect();
-        sorted.sort_by(|a, b| b.metrics.throughput.rps.partial_cmp(&a.metrics.throughput.rps).unwrap());
+        sorted.sort_by(|a, b| {
+            b.metrics
+                .throughput
+                .rps
+                .partial_cmp(&a.metrics.throughput.rps)
+                .unwrap()
+        });
         sorted
     }
 
@@ -457,7 +497,10 @@ impl BenchmarkComparison {
     pub fn by_latency(&self) -> Vec<&BenchmarkResult> {
         let mut sorted: Vec<_> = self.results.iter().collect();
         sorted.sort_by(|a, b| {
-            a.metrics.latency.percentiles.p99
+            a.metrics
+                .latency
+                .percentiles
+                .p99
                 .partial_cmp(&b.metrics.latency.percentiles.p99)
                 .unwrap()
         });
@@ -467,9 +510,15 @@ impl BenchmarkComparison {
     /// Format comparison table
     pub fn format_table(&self) -> String {
         let mut output = String::new();
-        output.push_str("\n┌────────────────────────┬──────────┬──────────┬──────────┬──────────┬──────────┐\n");
-        output.push_str("│ Gateway                │      RPS │  p50(ms) │  p95(ms) │  p99(ms) │ Success% │\n");
-        output.push_str("├────────────────────────┼──────────┼──────────┼──────────┼──────────┼──────────┤\n");
+        output.push_str(
+            "\n┌────────────────────────┬──────────┬──────────┬──────────┬──────────┬──────────┐\n",
+        );
+        output.push_str(
+            "│ Gateway                │      RPS │  p50(ms) │  p95(ms) │  p99(ms) │ Success% │\n",
+        );
+        output.push_str(
+            "├────────────────────────┼──────────┼──────────┼──────────┼──────────┼──────────┤\n",
+        );
 
         for result in self.by_rps() {
             output.push_str(&format!(
@@ -483,7 +532,9 @@ impl BenchmarkComparison {
             ));
         }
 
-        output.push_str("└────────────────────────┴──────────┴──────────┴──────────┴──────────┴──────────┘\n");
+        output.push_str(
+            "└────────────────────────┴──────────┴──────────┴──────────┴──────────┴──────────┘\n",
+        );
         output
     }
 }
@@ -540,8 +591,8 @@ mod tests {
 
     #[test]
     fn test_benchmark_url() {
-        let config = BenchmarkConfig::new(GatewayImpl::Envoy, "192.168.1.100")
-            .with_path("/api/test");
+        let config =
+            BenchmarkConfig::new(GatewayImpl::Envoy, "192.168.1.100").with_path("/api/test");
 
         assert_eq!(config.url(), "http://192.168.1.100:80/api/test");
     }

@@ -10,7 +10,9 @@ mod health;
 mod installer;
 mod manifest;
 
-pub use health::{HealthCheck, HealthCheckConfig, HealthChecker, HealthStatus, PreFlightChecker, PreFlightResult};
+pub use health::{
+    HealthCheck, HealthCheckConfig, HealthChecker, HealthStatus, PreFlightChecker, PreFlightResult,
+};
 pub use installer::{GatewayInstaller, InstallResult, InstallStatus, InstallerConfig};
 pub use manifest::{
     BackendRef, GatewayManifest, HttpRouteManifest, HttpRouteRule, Listener, ManifestGenerator,

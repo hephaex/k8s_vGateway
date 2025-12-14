@@ -535,7 +535,9 @@ async fn manage_deploy(args: cli::DeployArgs) -> Result<()> {
             let implementation = GatewayImpl::from_str(&gateway)
                 .ok_or_else(|| anyhow::anyhow!("Unknown gateway: {gateway}"))?;
 
-            let config = InstallerConfig::new().namespace(&namespace).timeout(timeout);
+            let config = InstallerConfig::new()
+                .namespace(&namespace)
+                .timeout(timeout);
 
             let installer = GatewayInstaller::new(config);
 
@@ -584,9 +586,10 @@ async fn manage_deploy(args: cli::DeployArgs) -> Result<()> {
             println!("├─────────────────────────────────────────────────────────────┤");
 
             for gateway in GatewayImpl::all() {
-                let status = installer.check_installed(gateway).await.unwrap_or(
-                    deploy::InstallStatus::NotInstalled,
-                );
+                let status = installer
+                    .check_installed(gateway)
+                    .await
+                    .unwrap_or(deploy::InstallStatus::NotInstalled);
                 let status_icon = if status.is_installed() { "✓" } else { "○" };
                 let arm64 = if gateway.supports_arm64() {
                     "ARM64"
@@ -676,7 +679,9 @@ async fn manage_deploy(args: cli::DeployArgs) -> Result<()> {
                     }
                 }
                 _ => {
-                    anyhow::bail!("Unknown resource type: {resource}. Use 'gateway' or 'httproute'");
+                    anyhow::bail!(
+                        "Unknown resource type: {resource}. Use 'gateway' or 'httproute'"
+                    );
                 }
             };
 
@@ -688,7 +693,9 @@ async fn manage_deploy(args: cli::DeployArgs) -> Result<()> {
 }
 
 async fn run_benchmark(args: cli::BenchmarkArgs) -> Result<()> {
-    use benchmark::{BenchmarkConfig, BenchmarkReport, BenchmarkReportFormat, BenchmarkRunner, LoadPattern};
+    use benchmark::{
+        BenchmarkConfig, BenchmarkReport, BenchmarkReportFormat, BenchmarkRunner, LoadPattern,
+    };
     use std::fs;
 
     match args.action {
@@ -744,15 +751,21 @@ async fn run_benchmark(args: cli::BenchmarkArgs) -> Result<()> {
             config.warmup_secs = warmup;
             config.port = port;
 
-            println!("Starting benchmark for {} at http://{}:{}{}", implementation.name(), ip, port, path);
+            println!(
+                "Starting benchmark for {} at http://{}:{}{}",
+                implementation.name(),
+                ip,
+                port,
+                path
+            );
             println!("Duration: {duration}s, Concurrency: {concurrency}, Pattern: {pattern:?}");
 
             let runner = BenchmarkRunner::new(config);
             let result = runner.run().await?;
 
             // Generate report
-            let report_format = BenchmarkReportFormat::from_str(&format)
-                .unwrap_or(BenchmarkReportFormat::Text);
+            let report_format =
+                BenchmarkReportFormat::from_str(&format).unwrap_or(BenchmarkReportFormat::Text);
             let report = BenchmarkReport::single(&result, report_format);
 
             println!("{report}");
@@ -813,8 +826,8 @@ async fn run_benchmark(args: cli::BenchmarkArgs) -> Result<()> {
 
             if !results.is_empty() {
                 // Generate comparison report
-                let report_format = BenchmarkReportFormat::from_str(&format)
-                    .unwrap_or(BenchmarkReportFormat::Text);
+                let report_format =
+                    BenchmarkReportFormat::from_str(&format).unwrap_or(BenchmarkReportFormat::Text);
                 let report = BenchmarkReport::comparison(&results, report_format);
 
                 println!("\n{report}");
@@ -831,7 +844,10 @@ async fn run_benchmark(args: cli::BenchmarkArgs) -> Result<()> {
             let content = fs::read_to_string(&file)?;
             let result: benchmark::BenchmarkResult = serde_json::from_str(&content)?;
 
-            println!("\nLatency Histogram for {} Benchmark", result.config.gateway.name());
+            println!(
+                "\nLatency Histogram for {} Benchmark",
+                result.config.gateway.name()
+            );
             println!("{:=<60}", "");
 
             // Create histogram buckets
@@ -841,8 +857,14 @@ async fn run_benchmark(args: cli::BenchmarkArgs) -> Result<()> {
             let _bucket_size = range / buckets as f64;
 
             println!("\nLatency Distribution (ms):");
-            println!("  Min: {:.2}ms, Max: {:.2}ms, Mean: {:.2}ms", min, max, result.metrics.latency.mean);
-            println!("\n  {:>12} {:>12} {:>12}", "Range (ms)", "Count", "Histogram");
+            println!(
+                "  Min: {:.2}ms, Max: {:.2}ms, Mean: {:.2}ms",
+                min, max, result.metrics.latency.mean
+            );
+            println!(
+                "\n  {:>12} {:>12} {:>12}",
+                "Range (ms)", "Count", "Histogram"
+            );
             println!("  {:->12} {:->12} {:->40}", "", "", "");
 
             // Note: We don't have individual samples stored, so show percentile-based distribution
@@ -861,8 +883,14 @@ async fn run_benchmark(args: cli::BenchmarkArgs) -> Result<()> {
             }
 
             println!("\nSummary:");
-            println!("  Total Requests: {}", result.metrics.throughput.total_requests);
-            println!("  Success Rate: {:.2}%", result.metrics.throughput.success_rate * 100.0);
+            println!(
+                "  Total Requests: {}",
+                result.metrics.throughput.total_requests
+            );
+            println!(
+                "  Success Rate: {:.2}%",
+                result.metrics.throughput.success_rate * 100.0
+            );
             println!("  RPS: {:.1}", result.metrics.throughput.rps);
         }
     }
@@ -923,7 +951,11 @@ fn manage_config(args: cli::ConfigArgs) -> Result<()> {
             }
         }
 
-        cli::ConfigAction::Profiles { gateways, tests, detailed } => {
+        cli::ConfigAction::Profiles {
+            gateways,
+            tests,
+            detailed,
+        } => {
             let manager = ProfileManager::new();
 
             let show_gateways = gateways || !tests;
@@ -936,7 +968,10 @@ fn manage_config(args: cli::ConfigArgs) -> Result<()> {
                     if detailed {
                         println!("  {} ({})", profile.name, profile.gateway.name());
                         println!("    Namespace: {}", profile.namespace);
-                        println!("    Ports: HTTP={}, HTTPS={}", profile.http_port, profile.https_port);
+                        println!(
+                            "    Ports: HTTP={}, HTTPS={}",
+                            profile.http_port, profile.https_port
+                        );
                         println!("    Install: {:?}", profile.install_method);
                         println!();
                     } else {
@@ -954,11 +989,19 @@ fn manage_config(args: cli::ConfigArgs) -> Result<()> {
                         println!("  {}", profile.name);
                         println!("    Description: {}", profile.description);
                         println!("    Tests: {:?}", profile.tests);
-                        println!("    Rounds: {}, Parallel: {}", profile.rounds, profile.parallel);
+                        println!(
+                            "    Rounds: {}, Parallel: {}",
+                            profile.rounds, profile.parallel
+                        );
                         println!("    Tags: {:?}", profile.tags);
                         println!();
                     } else {
-                        println!("  {:20} - {} ({} tests)", profile.name, profile.description, profile.tests.len());
+                        println!(
+                            "  {:20} - {} ({} tests)",
+                            profile.name,
+                            profile.description,
+                            profile.tests.len()
+                        );
                     }
                 }
             }

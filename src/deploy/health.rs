@@ -73,12 +73,20 @@ impl HealthChecker {
     /// Create a new health checker
     pub fn new(config: HealthCheckConfig) -> Result<Self> {
         let http_client = HttpClient::with_timeout(config.check_timeout_secs)?;
-        Ok(Self { config, http_client })
+        Ok(Self {
+            config,
+            http_client,
+        })
     }
 
     /// Check overall gateway health
     pub async fn check_gateway(&self, gateway: GatewayImpl, ip: &str, port: u16) -> HealthStatus {
-        info!("Checking health of {} gateway at {}:{}", gateway.name(), ip, port);
+        info!(
+            "Checking health of {} gateway at {}:{}",
+            gateway.name(),
+            ip,
+            port
+        );
 
         let mut checks = Vec::new();
 
@@ -114,8 +122,11 @@ impl HealthChecker {
 
         let output = Command::new("kubectl")
             .args([
-                "get", "gatewayclass", gateway_class,
-                "-o", "jsonpath={.status.conditions[?(@.type=='Accepted')].status}",
+                "get",
+                "gatewayclass",
+                gateway_class,
+                "-o",
+                "jsonpath={.status.conditions[?(@.type=='Accepted')].status}",
             ])
             .output()
             .await;
@@ -147,7 +158,10 @@ impl HealthChecker {
         match self.http_client.get(&url).await {
             Ok(response) => {
                 // Any response (including 404) means gateway is reachable
-                HealthCheck::pass(name, format!("Gateway reachable (status: {})", response.status_code))
+                HealthCheck::pass(
+                    name,
+                    format!("Gateway reachable (status: {})", response.status_code),
+                )
             }
             Err(e) => {
                 // Connection refused or timeout
@@ -163,10 +177,13 @@ impl HealthChecker {
 
         let output = Command::new("kubectl")
             .args([
-                "get", "pods",
-                "-l", label_selector,
+                "get",
+                "pods",
+                "-l",
+                label_selector,
                 "-A",
-                "-o", "jsonpath={.items[*].status.phase}",
+                "-o",
+                "jsonpath={.items[*].status.phase}",
             ])
             .output()
             .await;
@@ -183,7 +200,10 @@ impl HealthChecker {
                     if running == phases.len() {
                         HealthCheck::pass(name, format!("{running} pods running"))
                     } else {
-                        HealthCheck::fail(name, format!("{}/{} pods running", running, phases.len()))
+                        HealthCheck::fail(
+                            name,
+                            format!("{}/{} pods running", running, phases.len()),
+                        )
                     }
                 }
             }
@@ -201,9 +221,13 @@ impl HealthChecker {
 
         let output = Command::new("kubectl")
             .args([
-                "get", "gateway", name,
-                "-n", namespace,
-                "-o", "jsonpath={.status.conditions[?(@.type=='Accepted')].status}",
+                "get",
+                "gateway",
+                name,
+                "-n",
+                namespace,
+                "-o",
+                "jsonpath={.status.conditions[?(@.type=='Accepted')].status}",
             ])
             .output()
             .await;
@@ -231,9 +255,13 @@ impl HealthChecker {
 
         let output = Command::new("kubectl")
             .args([
-                "get", "httproute", name,
-                "-n", namespace,
-                "-o", "jsonpath={.status.parents[*].conditions[?(@.type=='Accepted')].status}",
+                "get",
+                "httproute",
+                name,
+                "-n",
+                namespace,
+                "-o",
+                "jsonpath={.status.parents[*].conditions[?(@.type=='Accepted')].status}",
             ])
             .output()
             .await;
@@ -287,10 +315,17 @@ impl HealthChecker {
             if status.healthy {
                 success_count += 1;
                 if success_count >= self.config.success_threshold {
-                    info!("{} is healthy after {} checks", gateway.name(), success_count);
+                    info!(
+                        "{} is healthy after {} checks",
+                        gateway.name(),
+                        success_count
+                    );
                     return Ok(status);
                 }
-                debug!("Health check passed ({}/{})", success_count, self.config.success_threshold);
+                debug!(
+                    "Health check passed ({}/{})",
+                    success_count, self.config.success_threshold
+                );
             } else {
                 success_count = 0;
                 debug!("Health check failed, retrying...");
@@ -314,9 +349,13 @@ impl HealthChecker {
         // Use curl for TLS check with SNI
         let output = Command::new("curl")
             .args([
-                "-s", "-o", "/dev/null",
-                "-w", "%{http_code}",
-                "--resolve", &format!("{hostname}:{port}:{ip}"),
+                "-s",
+                "-o",
+                "/dev/null",
+                "-w",
+                "%{http_code}",
+                "--resolve",
+                &format!("{hostname}:{port}:{ip}"),
                 "-k", // Allow self-signed certs
                 &format!("https://{hostname}:{port}/"),
             ])
@@ -362,7 +401,11 @@ impl HealthStatus {
         output.push_str(&format!(
             "│ {} Health Status: {}                            │\n",
             self.gateway.name(),
-            if self.healthy { "✓ Healthy" } else { "✗ Unhealthy" }
+            if self.healthy {
+                "✓ Healthy"
+            } else {
+                "✗ Unhealthy"
+            }
         ));
         output.push_str("├─────────────────────────────────────────────────────────────┤\n");
 
@@ -470,9 +513,7 @@ impl PreFlightChecker {
         let output = Command::new("kubectl").arg("version").output().await;
 
         match output {
-            Ok(o) if o.status.success() => {
-                HealthCheck::pass("kubectl", "kubectl is available")
-            }
+            Ok(o) if o.status.success() => HealthCheck::pass("kubectl", "kubectl is available"),
             _ => HealthCheck::fail("kubectl", "kubectl not found or not working"),
         }
     }
@@ -484,9 +525,7 @@ impl PreFlightChecker {
             .await;
 
         match output {
-            Ok(o) if o.status.success() => {
-                HealthCheck::pass("Cluster", "Cluster is reachable")
-            }
+            Ok(o) if o.status.success() => HealthCheck::pass("Cluster", "Cluster is reachable"),
             _ => HealthCheck::fail("Cluster", "Cannot connect to cluster"),
         }
     }

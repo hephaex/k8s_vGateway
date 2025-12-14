@@ -132,7 +132,10 @@ impl GatewayProfile {
             version: Some("1.16.0".to_string()),
             values: {
                 let mut values = HashMap::new();
-                values.insert("gatewayAPI.enabled".to_string(), serde_yaml::Value::Bool(true));
+                values.insert(
+                    "gatewayAPI.enabled".to_string(),
+                    serde_yaml::Value::Bool(true),
+                );
                 values
             },
         });
@@ -162,7 +165,10 @@ impl GatewayProfile {
             version: Some("30.0.0".to_string()),
             values: {
                 let mut values = HashMap::new();
-                values.insert("providers.kubernetesGateway.enabled".to_string(), serde_yaml::Value::Bool(true));
+                values.insert(
+                    "providers.kubernetesGateway.enabled".to_string(),
+                    serde_yaml::Value::Bool(true),
+                );
                 values
             },
         });
@@ -399,7 +405,9 @@ impl ProfileManager {
         // Load default gateway profiles
         for gateway in GatewayImpl::all() {
             let profile = GatewayProfile::default_for(gateway);
-            manager.gateway_profiles.insert(profile.name.clone(), profile);
+            manager
+                .gateway_profiles
+                .insert(profile.name.clone(), profile);
         }
 
         // Load default test profiles

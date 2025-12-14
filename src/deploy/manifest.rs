@@ -327,22 +327,20 @@ impl ManifestGenerator {
             },
             spec: GatewaySpec {
                 gateway_class_name: self.gateway_class.clone(),
-                listeners: vec![
-                    Listener {
-                        name: "http".to_string(),
-                        port: 80,
-                        protocol: "HTTP".to_string(),
-                        hostname: None,
-                        tls: None,
-                        allowed_routes: Some(AllowedRoutes {
-                            namespaces: Some(RouteNamespaces {
-                                from: "All".to_string(),
-                                selector: None,
-                            }),
-                            kinds: None,
+                listeners: vec![Listener {
+                    name: "http".to_string(),
+                    port: 80,
+                    protocol: "HTTP".to_string(),
+                    hostname: None,
+                    tls: None,
+                    allowed_routes: Some(AllowedRoutes {
+                        namespaces: Some(RouteNamespaces {
+                            from: "All".to_string(),
+                            selector: None,
                         }),
-                    },
-                ],
+                        kinds: None,
+                    }),
+                }],
                 addresses: None,
             },
         }
@@ -520,11 +518,7 @@ impl ManifestGenerator {
     }
 
     /// Generate HTTPRoute with HTTPS redirect
-    pub fn http_route_redirect_https(
-        &self,
-        name: &str,
-        gateway_name: &str,
-    ) -> HttpRouteManifest {
+    pub fn http_route_redirect_https(&self, name: &str, gateway_name: &str) -> HttpRouteManifest {
         let mut route = self.http_route(name, gateway_name);
         route.spec.rules = Some(vec![HttpRouteRule {
             matches: None,
@@ -602,7 +596,10 @@ impl ManifestGenerator {
 
     fn default_labels(&self) -> BTreeMap<String, String> {
         let mut labels = BTreeMap::new();
-        labels.insert("app.kubernetes.io/managed-by".to_string(), "gateway-poc".to_string());
+        labels.insert(
+            "app.kubernetes.io/managed-by".to_string(),
+            "gateway-poc".to_string(),
+        );
         labels
     }
 }

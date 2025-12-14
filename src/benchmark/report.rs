@@ -73,7 +73,10 @@ impl BenchmarkReport {
         let m = &result.metrics;
         let c = &result.config;
 
-        output.push_str(&format!("\n{:=^70}\n", format!(" {} Benchmark Report ", c.gateway.name())));
+        output.push_str(&format!(
+            "\n{:=^70}\n",
+            format!(" {} Benchmark Report ", c.gateway.name())
+        ));
         output.push_str("\nConfiguration:\n");
         output.push_str(&format!("  Target URL:    {}\n", c.url()));
         output.push_str(&format!("  Duration:      {} seconds\n", c.duration_secs));
@@ -81,27 +84,63 @@ impl BenchmarkReport {
         output.push_str(&format!("  Load Pattern:  {:?}\n", c.pattern));
 
         output.push_str("\nThroughput:\n");
-        output.push_str(&format!("  Total Requests:    {:>10}\n", m.throughput.total_requests));
-        output.push_str(&format!("  Successful:        {:>10}\n", m.throughput.successful_requests));
-        output.push_str(&format!("  Failed:            {:>10}\n", m.throughput.failed_requests));
-        output.push_str(&format!("  Requests/sec:      {:>10.2}\n", m.throughput.rps));
-        output.push_str(&format!("  Success Rate:      {:>9.1}%\n", m.throughput.success_rate * 100.0));
+        output.push_str(&format!(
+            "  Total Requests:    {:>10}\n",
+            m.throughput.total_requests
+        ));
+        output.push_str(&format!(
+            "  Successful:        {:>10}\n",
+            m.throughput.successful_requests
+        ));
+        output.push_str(&format!(
+            "  Failed:            {:>10}\n",
+            m.throughput.failed_requests
+        ));
+        output.push_str(&format!(
+            "  Requests/sec:      {:>10.2}\n",
+            m.throughput.rps
+        ));
+        output.push_str(&format!(
+            "  Success Rate:      {:>9.1}%\n",
+            m.throughput.success_rate * 100.0
+        ));
 
         output.push_str("\nLatency (ms):\n");
         output.push_str(&format!("  Min:      {:>10.2}\n", m.latency.min));
         output.push_str(&format!("  Max:      {:>10.2}\n", m.latency.max));
         output.push_str(&format!("  Mean:     {:>10.2}\n", m.latency.mean));
         output.push_str(&format!("  Std Dev:  {:>10.2}\n", m.latency.std_dev));
-        output.push_str(&format!("  P50:      {:>10.2}\n", m.latency.percentiles.p50));
-        output.push_str(&format!("  P90:      {:>10.2}\n", m.latency.percentiles.p90));
-        output.push_str(&format!("  P95:      {:>10.2}\n", m.latency.percentiles.p95));
-        output.push_str(&format!("  P99:      {:>10.2}\n", m.latency.percentiles.p99));
-        output.push_str(&format!("  P99.9:    {:>10.2}\n", m.latency.percentiles.p999));
+        output.push_str(&format!(
+            "  P50:      {:>10.2}\n",
+            m.latency.percentiles.p50
+        ));
+        output.push_str(&format!(
+            "  P90:      {:>10.2}\n",
+            m.latency.percentiles.p90
+        ));
+        output.push_str(&format!(
+            "  P95:      {:>10.2}\n",
+            m.latency.percentiles.p95
+        ));
+        output.push_str(&format!(
+            "  P99:      {:>10.2}\n",
+            m.latency.percentiles.p99
+        ));
+        output.push_str(&format!(
+            "  P99.9:    {:>10.2}\n",
+            m.latency.percentiles.p999
+        ));
 
         if m.errors.total() > 0 {
             output.push_str("\nErrors:\n");
-            output.push_str(&format!("  Connection:   {:>10}\n", m.errors.connection_errors));
-            output.push_str(&format!("  Timeout:      {:>10}\n", m.errors.timeout_errors));
+            output.push_str(&format!(
+                "  Connection:   {:>10}\n",
+                m.errors.connection_errors
+            ));
+            output.push_str(&format!(
+                "  Timeout:      {:>10}\n",
+                m.errors.timeout_errors
+            ));
             output.push_str(&format!("  Client (4xx): {:>10}\n", m.errors.client_errors));
             output.push_str(&format!("  Server (5xx): {:>10}\n", m.errors.server_errors));
             output.push_str(&format!("  Other:        {:>10}\n", m.errors.other_errors));
@@ -128,17 +167,29 @@ impl BenchmarkReport {
         output.push_str("\n## Throughput\n\n");
         output.push_str("| Metric | Value |\n");
         output.push_str("|--------|-------|\n");
-        output.push_str(&format!("| Total Requests | {} |\n", m.throughput.total_requests));
-        output.push_str(&format!("| Successful | {} |\n", m.throughput.successful_requests));
+        output.push_str(&format!(
+            "| Total Requests | {} |\n",
+            m.throughput.total_requests
+        ));
+        output.push_str(&format!(
+            "| Successful | {} |\n",
+            m.throughput.successful_requests
+        ));
         output.push_str(&format!("| Failed | {} |\n", m.throughput.failed_requests));
         output.push_str(&format!("| Requests/sec | {:.2} |\n", m.throughput.rps));
-        output.push_str(&format!("| Success Rate | {:.1}% |\n", m.throughput.success_rate * 100.0));
+        output.push_str(&format!(
+            "| Success Rate | {:.1}% |\n",
+            m.throughput.success_rate * 100.0
+        ));
 
         output.push_str("\n## Latency (milliseconds)\n\n");
         output.push_str("| Percentile | Value |\n");
         output.push_str("|------------|-------|\n");
         output.push_str(&format!("| Min | {:.2} |\n", m.latency.min));
-        output.push_str(&format!("| P50 (median) | {:.2} |\n", m.latency.percentiles.p50));
+        output.push_str(&format!(
+            "| P50 (median) | {:.2} |\n",
+            m.latency.percentiles.p50
+        ));
         output.push_str(&format!("| P90 | {:.2} |\n", m.latency.percentiles.p90));
         output.push_str(&format!("| P95 | {:.2} |\n", m.latency.percentiles.p95));
         output.push_str(&format!("| P99 | {:.2} |\n", m.latency.percentiles.p99));
@@ -265,7 +316,13 @@ impl BenchmarkReport {
             c.gateway.name(),
             m.throughput.rps,
             m.latency.percentiles.p99,
-            if m.throughput.success_rate > 0.99 { "success" } else if m.throughput.success_rate > 0.95 { "warning" } else { "danger" },
+            if m.throughput.success_rate > 0.99 {
+                "success"
+            } else if m.throughput.success_rate > 0.95 {
+                "warning"
+            } else {
+                "danger"
+            },
             m.throughput.success_rate * 100.0,
             m.throughput.total_requests,
             c.url(),
@@ -280,7 +337,11 @@ impl BenchmarkReport {
             m.latency.max,
             m.throughput.total_requests,
             m.throughput.successful_requests,
-            if m.throughput.failed_requests > 0 { "danger" } else { "" },
+            if m.throughput.failed_requests > 0 {
+                "danger"
+            } else {
+                ""
+            },
             m.throughput.failed_requests,
             m.throughput.success_rate * 100.0
         )
@@ -356,9 +417,13 @@ impl BenchmarkReport {
         let mut rows = String::new();
         for (i, result) in results.iter().enumerate() {
             let m = &result.metrics;
-            let success_class = if m.throughput.success_rate > 0.99 { "success" }
-                else if m.throughput.success_rate > 0.95 { "warning" }
-                else { "danger" };
+            let success_class = if m.throughput.success_rate > 0.99 {
+                "success"
+            } else if m.throughput.success_rate > 0.95 {
+                "warning"
+            } else {
+                "danger"
+            };
 
             rows.push_str(&format!(
                 r#"<tr>
@@ -437,7 +502,10 @@ mod tests {
     fn test_report_format_from_str() {
         assert_eq!(ReportFormat::from_str("text"), Some(ReportFormat::Text));
         assert_eq!(ReportFormat::from_str("json"), Some(ReportFormat::Json));
-        assert_eq!(ReportFormat::from_str("markdown"), Some(ReportFormat::Markdown));
+        assert_eq!(
+            ReportFormat::from_str("markdown"),
+            Some(ReportFormat::Markdown)
+        );
         assert_eq!(ReportFormat::from_str("md"), Some(ReportFormat::Markdown));
         assert_eq!(ReportFormat::from_str("csv"), Some(ReportFormat::Csv));
         assert_eq!(ReportFormat::from_str("html"), Some(ReportFormat::Html));

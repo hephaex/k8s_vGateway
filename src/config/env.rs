@@ -76,7 +76,9 @@ impl EnvConfig {
 
     /// Get gateway IP with fallback
     pub fn gateway_ip_or(&self, default: &str) -> String {
-        self.gateway_ip.clone().unwrap_or_else(|| default.to_string())
+        self.gateway_ip
+            .clone()
+            .unwrap_or_else(|| default.to_string())
     }
 
     /// Get gateway with fallback
@@ -154,37 +156,43 @@ impl EnvBuilder {
 
     /// Set gateway
     pub fn gateway(mut self, gateway: impl Into<String>) -> Self {
-        self.vars.push((format!("{ENV_PREFIX}_GATEWAY"), gateway.into()));
+        self.vars
+            .push((format!("{ENV_PREFIX}_GATEWAY"), gateway.into()));
         self
     }
 
     /// Set hostname
     pub fn hostname(mut self, hostname: impl Into<String>) -> Self {
-        self.vars.push((format!("{ENV_PREFIX}_HOSTNAME"), hostname.into()));
+        self.vars
+            .push((format!("{ENV_PREFIX}_HOSTNAME"), hostname.into()));
         self
     }
 
     /// Set port
     pub fn port(mut self, port: u16) -> Self {
-        self.vars.push((format!("{ENV_PREFIX}_PORT"), port.to_string()));
+        self.vars
+            .push((format!("{ENV_PREFIX}_PORT"), port.to_string()));
         self
     }
 
     /// Set timeout
     pub fn timeout(mut self, timeout: u64) -> Self {
-        self.vars.push((format!("{ENV_PREFIX}_TIMEOUT"), timeout.to_string()));
+        self.vars
+            .push((format!("{ENV_PREFIX}_TIMEOUT"), timeout.to_string()));
         self
     }
 
     /// Set rounds
     pub fn rounds(mut self, rounds: u32) -> Self {
-        self.vars.push((format!("{ENV_PREFIX}_ROUNDS"), rounds.to_string()));
+        self.vars
+            .push((format!("{ENV_PREFIX}_ROUNDS"), rounds.to_string()));
         self
     }
 
     /// Set parallel
     pub fn parallel(mut self, parallel: bool) -> Self {
-        self.vars.push((format!("{ENV_PREFIX}_PARALLEL"), parallel.to_string()));
+        self.vars
+            .push((format!("{ENV_PREFIX}_PARALLEL"), parallel.to_string()));
         self
     }
 
@@ -296,9 +304,7 @@ mod tests {
 
     #[test]
     fn test_env_bool_parsing() {
-        let _guard = EnvBuilder::new()
-            .parallel(true)
-            .apply_scoped();
+        let _guard = EnvBuilder::new().parallel(true).apply_scoped();
 
         let config = EnvConfig::load();
         assert_eq!(config.parallel, Some(true));
