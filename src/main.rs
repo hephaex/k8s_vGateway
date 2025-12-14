@@ -38,6 +38,7 @@ use tracing_subscriber::FmtSubscriber;
 
 mod cli;
 mod config;
+mod deploy;
 mod executor;
 mod http;
 mod k8s;
@@ -76,6 +77,9 @@ async fn main() -> Result<()> {
         }
         cli::Command::Results(results_args) => {
             show_results(results_args)?;
+        }
+        cli::Command::Deploy(deploy_args) => {
+            manage_deploy(deploy_args).await?;
         }
     }
 
@@ -503,6 +507,173 @@ fn show_results(args: cli::ResultsArgs) -> Result<()> {
             let report = generator.gateway_report(latest, format);
             std::fs::write(&path, report)?;
             println!("\n✓ Report exported to: {}", path.display());
+        }
+    }
+
+    Ok(())
+}
+
+async fn manage_deploy(args: cli::DeployArgs) -> Result<()> {
+    use deploy::{
+        GatewayInstaller, HealthCheckConfig, HealthChecker, InstallerConfig, ManifestGenerator,
+        PreFlightChecker,
+    };
+
+    match args.action {
+        cli::DeployAction::Install {
+            gateway,
+            namespace,
+            timeout,
+        } => {
+            let implementation = GatewayImpl::from_str(&gateway)
+                .ok_or_else(|| anyhow::anyhow!("Unknown gateway: {gateway}"))?;
+
+            let config = InstallerConfig::new().namespace(&namespace).timeout(timeout);
+
+            let installer = GatewayInstaller::new(config);
+
+            println!("Installing {} gateway...", implementation.name());
+
+            match installer.install(implementation).await {
+                Ok(result) => {
+                    println!("\n✓ Installation complete!");
+                    println!("  Gateway: {}", result.gateway.name());
+                    println!("  Release: {}", result.release_name);
+                    println!("  Namespace: {}", result.namespace);
+                    println!("  GatewayClass: {}", result.gateway_class);
+                    println!("  Status: {}", result.status.as_str());
+                }
+                Err(e) => {
+                    println!("✗ Installation failed: {e}");
+                }
+            }
+        }
+
+        cli::DeployAction::Uninstall { gateway, namespace } => {
+            let implementation = GatewayImpl::from_str(&gateway)
+                .ok_or_else(|| anyhow::anyhow!("Unknown gateway: {gateway}"))?;
+
+            let config = InstallerConfig::new().namespace(&namespace);
+            let installer = GatewayInstaller::new(config);
+
+            println!("Uninstalling {} gateway...", implementation.name());
+
+            match installer.uninstall(implementation).await {
+                Ok(()) => {
+                    println!("✓ Uninstall complete!");
+                }
+                Err(e) => {
+                    println!("✗ Uninstall failed: {e}");
+                }
+            }
+        }
+
+        cli::DeployAction::List => {
+            let config = InstallerConfig::new();
+            let installer = GatewayInstaller::new(config);
+
+            println!("\n┌─────────────────────────────────────────────────────────────┐");
+            println!("│ Gateway Implementations                                     │");
+            println!("├─────────────────────────────────────────────────────────────┤");
+
+            for gateway in GatewayImpl::all() {
+                let status = installer.check_installed(gateway).await.unwrap_or(
+                    deploy::InstallStatus::NotInstalled,
+                );
+                let status_icon = if status.is_installed() { "✓" } else { "○" };
+                let arm64 = if gateway.supports_arm64() {
+                    "ARM64"
+                } else {
+                    "AMD64"
+                };
+
+                println!(
+                    "│ {} {:30} {:10} {:8} │",
+                    status_icon,
+                    gateway.name(),
+                    status.as_str(),
+                    arm64
+                );
+            }
+
+            println!("└─────────────────────────────────────────────────────────────┘\n");
+        }
+
+        cli::DeployAction::Health { gateway, ip, port } => {
+            let implementation = GatewayImpl::from_str(&gateway)
+                .ok_or_else(|| anyhow::anyhow!("Unknown gateway: {gateway}"))?;
+
+            let config = HealthCheckConfig::default();
+            let checker = HealthChecker::new(config)?;
+
+            let status = checker.check_gateway(implementation, &ip, port).await;
+            println!("{}", status.format_table());
+        }
+
+        cli::DeployAction::Preflight { gateway, ip, port } => {
+            let implementation = GatewayImpl::from_str(&gateway)
+                .ok_or_else(|| anyhow::anyhow!("Unknown gateway: {gateway}"))?;
+
+            let config = HealthCheckConfig::default();
+            let checker = PreFlightChecker::new(config)?;
+
+            let result = checker.run(implementation, &ip, port).await;
+            println!("{}", result.format_table());
+
+            if !result.passed {
+                std::process::exit(1);
+            }
+        }
+
+        cli::DeployAction::Crds { experimental } => {
+            let config = InstallerConfig::new();
+            let installer = GatewayInstaller::new(config);
+
+            if experimental {
+                println!("Installing experimental Gateway API CRDs...");
+                installer.install_gateway_api_experimental().await?;
+            } else {
+                println!("Installing standard Gateway API CRDs...");
+                installer.install_gateway_api_crds().await?;
+            }
+
+            println!("✓ Gateway API CRDs installed successfully");
+        }
+
+        cli::DeployAction::Manifest {
+            gateway,
+            resource,
+            name,
+            format,
+        } => {
+            let implementation = GatewayImpl::from_str(&gateway)
+                .ok_or_else(|| anyhow::anyhow!("Unknown gateway: {gateway}"))?;
+
+            let generator = ManifestGenerator::new(implementation);
+
+            let output = match resource.to_lowercase().as_str() {
+                "gateway" => {
+                    let manifest = generator.gateway(&name);
+                    if format == "json" {
+                        ManifestGenerator::to_json(&manifest)
+                    } else {
+                        ManifestGenerator::to_yaml(&manifest)
+                    }
+                }
+                "httproute" => {
+                    let manifest = generator.http_route(&name, "test-gateway");
+                    if format == "json" {
+                        ManifestGenerator::to_json(&manifest)
+                    } else {
+                        ManifestGenerator::to_yaml(&manifest)
+                    }
+                }
+                _ => {
+                    anyhow::bail!("Unknown resource type: {resource}. Use 'gateway' or 'httproute'");
+                }
+            };
+
+            println!("{output}");
         }
     }
 

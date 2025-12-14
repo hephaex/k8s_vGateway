@@ -33,6 +33,9 @@ pub enum Command {
 
     /// View test results
     Results(ResultsArgs),
+
+    /// Deploy and manage gateway implementations
+    Deploy(DeployArgs),
 }
 
 /// Arguments for test command
@@ -178,6 +181,97 @@ pub struct ResultsArgs {
     /// Export to file
     #[arg(short, long)]
     pub export: Option<String>,
+}
+
+/// Arguments for deploy command
+#[derive(Parser, Debug)]
+pub struct DeployArgs {
+    #[command(subcommand)]
+    pub action: DeployAction,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DeployAction {
+    /// Install a gateway implementation
+    Install {
+        /// Gateway implementation to install
+        gateway: String,
+
+        /// Namespace for installation
+        #[arg(short, long, default_value = "gateway-system")]
+        namespace: String,
+
+        /// Wait timeout in seconds
+        #[arg(long, default_value = "300")]
+        timeout: u64,
+    },
+
+    /// Uninstall a gateway implementation
+    Uninstall {
+        /// Gateway implementation to uninstall
+        gateway: String,
+
+        /// Namespace
+        #[arg(short, long, default_value = "gateway-system")]
+        namespace: String,
+    },
+
+    /// List installed gateways
+    List,
+
+    /// Check gateway health
+    Health {
+        /// Gateway implementation to check
+        gateway: String,
+
+        /// Gateway IP address
+        #[arg(short, long)]
+        ip: String,
+
+        /// Gateway port
+        #[arg(short, long, default_value = "80")]
+        port: u16,
+    },
+
+    /// Run pre-flight checks
+    Preflight {
+        /// Gateway implementation
+        gateway: String,
+
+        /// Gateway IP address
+        #[arg(short, long)]
+        ip: String,
+
+        /// Gateway port
+        #[arg(short, long, default_value = "80")]
+        port: u16,
+    },
+
+    /// Install Gateway API CRDs
+    Crds {
+        /// Install experimental CRDs
+        #[arg(long)]
+        experimental: bool,
+    },
+
+    /// Generate Kubernetes manifests
+    Manifest {
+        /// Gateway implementation
+        #[arg(short, long, default_value = "nginx")]
+        gateway: String,
+
+        /// Resource type (gateway, httproute)
+        #[arg(short, long, default_value = "gateway")]
+        resource: String,
+
+        /// Resource name
+        #[arg(short, long, default_value = "test-gateway")]
+        name: String,
+
+        /// Output format (yaml, json)
+        #[arg(short, long, default_value = "yaml")]
+        format: String,
+    },
 }
 
 #[cfg(test)]

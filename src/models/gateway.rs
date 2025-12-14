@@ -52,6 +52,32 @@ impl GatewayImpl {
         }
     }
 
+    /// Get short name for Helm releases
+    pub fn short_name(&self) -> &'static str {
+        match self {
+            GatewayImpl::Nginx => "nginx",
+            GatewayImpl::Envoy => "envoy",
+            GatewayImpl::Istio => "istio",
+            GatewayImpl::Cilium => "cilium",
+            GatewayImpl::Kong => "kong",
+            GatewayImpl::Traefik => "traefik",
+            GatewayImpl::Kgateway => "kgateway",
+        }
+    }
+
+    /// Get pod label selector
+    pub fn pod_selector(&self) -> &'static str {
+        match self {
+            GatewayImpl::Nginx => "app.kubernetes.io/name=nginx-gateway-fabric",
+            GatewayImpl::Envoy => "app.kubernetes.io/name=envoy-gateway",
+            GatewayImpl::Istio => "app=istiod",
+            GatewayImpl::Cilium => "app.kubernetes.io/name=cilium-agent",
+            GatewayImpl::Kong => "app.kubernetes.io/name=kong",
+            GatewayImpl::Traefik => "app.kubernetes.io/name=traefik",
+            GatewayImpl::Kgateway => "app.kubernetes.io/name=kgateway",
+        }
+    }
+
     /// Get all gateway implementations
     pub fn all() -> Vec<GatewayImpl> {
         vec![
