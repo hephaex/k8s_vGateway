@@ -1,6 +1,7 @@
 # k8s_vGateway
 
 [![CI](https://github.com/hephaex/k8s_vGateway/actions/workflows/ci.yml/badge.svg)](https://github.com/hephaex/k8s_vGateway/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/gateway-poc.svg)](https://crates.io/crates/gateway-poc)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL%203.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 Kubernetes Gateway API Implementation Comparison Tool
@@ -27,6 +28,12 @@ A CLI tool to test and compare 7 different Gateway API implementations on Kubern
 - Automated gateway deployment and health checks
 
 ## Installation
+
+### From crates.io
+
+```bash
+cargo install gateway-poc
+```
 
 ### Pre-built Binaries
 
