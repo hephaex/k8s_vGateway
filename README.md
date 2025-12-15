@@ -142,6 +142,12 @@ gateway-poc config profiles --detailed
 | `GATEWAY_POC_TIMEOUT` | Request timeout (seconds) | 30 |
 | `GATEWAY_POC_LOG_LEVEL` | Log level (trace/debug/info/warn/error) | info |
 
+## Documentation
+
+- [CHANGELOG](CHANGELOG.md) - Release history
+- [CONTRIBUTING](CONTRIBUTING.md) - Contribution guidelines
+- [SECURITY](SECURITY.md) - Security policy
+
 ## License
 
 GPL-3.0
