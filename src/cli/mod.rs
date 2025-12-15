@@ -8,7 +8,7 @@ use clap::{Parser, Subcommand};
 #[derive(Parser, Debug)]
 #[command(name = "gateway-poc")]
 #[command(author = "hephaex@gmail.com")]
-#[command(version = "0.1.3")]
+#[command(version = "0.1.4")]
 #[command(about = "Test and compare 7 Gateway API implementations")]
 #[command(long_about = None)]
 pub struct Args {
