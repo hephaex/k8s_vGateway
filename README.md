@@ -28,6 +28,22 @@ A CLI tool to test and compare 7 different Gateway API implementations on Kubern
 
 ## Installation
 
+### Pre-built Binaries
+
+Download the latest release for your platform:
+
+```bash
+# Linux (x86_64)
+curl -LO https://github.com/hephaex/k8s_vGateway/releases/latest/download/gateway-poc-linux-amd64
+chmod +x gateway-poc-linux-amd64
+sudo mv gateway-poc-linux-amd64 /usr/local/bin/gateway-poc
+
+# macOS (ARM64)
+curl -LO https://github.com/hephaex/k8s_vGateway/releases/latest/download/gateway-poc-darwin-arm64
+chmod +x gateway-poc-darwin-arm64
+sudo mv gateway-poc-darwin-arm64 /usr/local/bin/gateway-poc
+```
+
 ### From Source
 
 ```bash
@@ -38,9 +54,9 @@ cargo build --release
 
 ### Requirements
 
-- Rust 1.70+
 - Kubernetes cluster with Gateway API CRDs installed
 - kubectl configured with cluster access
+- Rust 1.70+ (only for building from source)
 
 ## Usage
 
